@@ -1,13 +1,13 @@
 package not_login
 
 import (
-	"log"
 	"strings"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
 
-	"nso-server/internal/infra"
+	logger "nso-server/internal/infra"
+	"nso-server/internal/lang"
 	"nso-server/internal/model"
 	"nso-server/internal/net"
 	"nso-server/internal/proto"
@@ -19,7 +19,8 @@ func HandleRegister(msg *proto.Message, s *net.Session) {
 
 	username, err := r.ReadUTF()
 	if err != nil {
-		log.Println("❌ Failed to read username:", err)
+		logger.Log.WithError(err).Warn("❌ Failed to read username")
+		sendRegisterFail(s, lang.Get("common.error_occurred"))
 		return
 	}
 	password, _ := r.ReadUTF()
@@ -28,67 +29,68 @@ func HandleRegister(msg *proto.Message, s *net.Session) {
 	username = strings.TrimSpace(username)
 	email = strings.TrimSpace(email)
 
-	// Validate đơn giản
 	if username == "" || password == "" || email == "" {
-		log.Println("❌ Register: missing fields")
-		w := proto.NewMessage(21)
-		_ = w.Writer().WriteByte(0)
-		w.WriteUTF("Vui lòng nhập đầy đủ thông tin")
-		s.SendMessage(w)
+		sendRegisterFail(s, lang.Get("account.register_incomplete"))
 		return
 	}
 	if len(username) < 5 {
-		log.Println("❌ Register: username too short")
-		w := proto.NewMessage(21)
-		_ = w.Writer().WriteByte(0)
-		w.WriteUTF("Tên tài khoản quá ngắn")
-		s.SendMessage(w)
+		sendRegisterFail(s, lang.Get("account.register_username_too_short"))
 		return
 	}
 
-	// Kiểm tra tài khoản tồn tại
+	// Kiểm tra định dạng email
+	if !utils.IsValidEmail(email) {
+		sendRegisterFail(s, lang.Get("account.register_invalid_email"))
+		return
+	}
+
 	var existing model.Account
-	if err := infra.DB.Where("username = ?", username).First(&existing).Error; err == nil {
-		log.Printf("❌ Register: username '%s' already exists\n", username)
-		w := proto.NewMessage(21)
-		_ = w.Writer().WriteByte(0)
-		w.WriteUTF("Tài khoản đã tồn tại")
-		s.SendMessage(w)
+	// Kiểm tra xem username đã tồn tại chưa
+	if err := logger.DB.Where("username = ?", username).First(&existing).Error; err == nil {
+		logger.Log.Warnf("❌ Register failed: Username %s already exists", username)
+		sendRegisterFail(s, lang.Get("account.register_username_exists"))
+		return
+	}
+
+	// Kiểm tra xem email đã tồn tại chưa
+	if err := logger.DB.Where("email = ?", email).First(&existing).Error; err == nil {
+		logger.Log.Warnf("❌ Register failed: Email %s already exists", email)
+		sendRegisterFail(s, lang.Get("account.register_email_exists"))
 		return
 	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		log.Println("❌ Register: failed to hash password:", err)
-		w := proto.NewMessage(21)
-		_ = w.Writer().WriteByte(0)
-		w.WriteUTF("Lỗi nội bộ khi tạo tài khoản")
-		s.SendMessage(w)
+		logger.Log.WithError(err).Error("❌ Register: lỗi hash password")
+		sendRegisterFail(s, lang.Get("common.error_occurred"))
 		return
 	}
 
 	account := model.Account{
-		Username:     username,
-		Password:     string(hashedPassword),
-		Email:        email,
-		RandomToken:  utils.GenRandomToken(),
-		CreatedAt:    time.Now(),
-		UpdatedAt:    time.Now(),
+		Username:    username,
+		Password:    string(hashedPassword),
+		Email:       email,
+		RandomToken: utils.GenRandomToken(),
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
 	}
 
-	if err := infra.DB.Create(&account).Error; err != nil {
-		log.Println("❌ Register: failed to create account:", err)
-		w := proto.NewMessage(21)
-		_ = w.Writer().WriteByte(0)
-		w.WriteUTF("Lỗi tạo tài khoản")
-		s.SendMessage(w)
+	if err := logger.DB.Create(&account).Error; err != nil {
+		logger.Log.WithError(err).Error("❌ Register: lỗi tạo account")
+		sendRegisterFail(s, lang.Get("common.error_occurred"))
 		return
 	}
 
-	log.Printf("✅ Registered account: %s (ID: %d)", username, account.ID)
+	logger.Log.Infof("✅ Đăng ký thành công: %s (ID: %d)", username, account.ID)
 
-	w := proto.NewMessage(21)
-	_ = w.Writer().WriteByte(1)
-	w.WriteUTF("Đăng ký thành công")
+	w := proto.NewMessage(proto.CmdServerDialog)
+	w.WriteUTF(lang.Get("account.register_success"))
+	s.SendMessage(w)
+}
+
+func sendRegisterFail(s *net.Session, reason string) {
+	logger.Log.Warnf("❌ Register failed: %s", reason)
+	w := proto.NewMessage(proto.CmdServerDialog)
+	w.WriteUTF(reason)
 	s.SendMessage(w)
 }

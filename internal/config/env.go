@@ -5,6 +5,8 @@ type AppConfig struct {
 	DBUrl    string
 	Port     string
 	RedisUrl string
+	DefaultLanguage string // Mặc định là "vi"
+	LogLevel string // "debug", "info", "warn", "error"
 }
 
 var Config AppConfig

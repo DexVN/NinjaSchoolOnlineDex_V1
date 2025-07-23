@@ -1,4 +1,29 @@
-*.go text eol=lf
-.env.example text eol=lf
-.README.md text eol=lf
+# Luôn dùng LF (Unix-style) cho tất cả file text
+* text eol=lf
 
+# Các định dạng nhị phân — không tự động chuyển dòng
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.exe binary
+*.dll binary
+
+# Markdown, Go, config files, scripts...
+*.md    text
+*.go    text
+*.json  text
+*.yaml  text
+*.yml   text
+*.toml  text
+*.sh    text
+*.bat   text
+*.ps1   text
+*.env   text
+*.conf  text
+*.ini   text
+*.sql   text
+*.proto text

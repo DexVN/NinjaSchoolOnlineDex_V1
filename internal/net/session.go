@@ -1,12 +1,12 @@
-// internal/net/session.go
 package net
 
 import (
 	"encoding/binary"
 	"io"
-	"log"
 	"net"
+	"time"
 
+	logger "nso-server/internal/infra"
 	"nso-server/internal/proto"
 )
 
@@ -34,20 +34,23 @@ func NewSession(conn net.Conn, router RouterFunc) *Session {
 }
 
 func (s *Session) Start() {
-	defer s.conn.Close()
-	log.Println("🔄 New connection from", s.conn.RemoteAddr())
+	defer func() {
+		s.Cleanup()    // 🧹 cleanup khỏi SessionManager, CharacterManager,...
+		s.conn.Close() // đóng kết nối sau cleanup
+	}()
+	logger.Log.Infof("🔄 New connection from %s", s.conn.RemoteAddr())
 
 	// Đọc gói đầu tiên (thường là handshake)
 	opcodeBuf := make([]byte, 1)
 	if _, err := io.ReadFull(s.conn, opcodeBuf); err != nil {
-		log.Println("❌ Failed to read opcode:", err)
+		logger.Log.WithError(err).Error("❌ Failed to read opcode")
 		return
 	}
 	opcode := int8(opcodeBuf[0])
 
 	lenBuf := make([]byte, 2)
 	if _, err := io.ReadFull(s.conn, lenBuf); err != nil {
-		log.Println("❌ Failed to read length:", err)
+		logger.Log.WithError(err).Error("❌ Failed to read length")
 		return
 	}
 	length := binary.BigEndian.Uint16(lenBuf)
@@ -55,26 +58,25 @@ func (s *Session) Start() {
 	if length > 0 {
 		drop := make([]byte, length)
 		if _, err := io.ReadFull(s.conn, drop); err != nil {
-			log.Println("❌ Failed to read payload:", err)
+			logger.Log.WithError(err).Error("❌ Failed to read payload")
 			return
 		}
 	}
 
 	if opcode == proto.CmdGetSessionId {
 		if err := s.sendHandshake(); err != nil {
-			log.Println("❌ Send handshake failed:", err)
+			logger.Log.WithError(err).Error("❌ Send handshake failed")
 			return
 		}
 	}
 
-	log.Println("✅ Handshake complete, start encrypted message loop")
+	logger.Log.Info("✅ Handshake complete, start encrypted message loop")
 
-	// Đọc các message XOR sau khi có key
 	for {
 		msg, err := proto.ReadMessage(s.conn, s.key, &s.readIndex)
 		if err != nil {
 			if err != io.EOF {
-				log.Println("⚠️ ReadMessage error:", err)
+				logger.Log.WithError(err).Warn("⚠️ ReadMessage error")
 			}
 			break
 		}
@@ -102,7 +104,7 @@ func (s *Session) sendHandshake() error {
 		s.key[i] ^= s.key[i-1] // giống client Unity
 	}
 
-	log.Printf("🔐 XOR key activated: % X", s.key)
+	logger.Log.Infof("🔐 XOR key activated: % X", s.key)
 	return nil
 }
 
@@ -116,15 +118,17 @@ func (s *Session) SendMessageWithCommand(cmd int8, w *proto.Writer) error {
 	return s.SendMessage(msg)
 }
 
-func (s *Session) Kick(reason string) {
-	log.Println("🔒 Kicking session:", reason)
-	w := proto.NewWriter()
-	w.WriteUTF(reason)
-	s.SendMessageWithCommand(proto.CmdServerDialog, w)
+func (s *Session) Kick(forceClose bool) {
+	if forceClose {
+		go func() {
+			time.Sleep(500 * time.Millisecond)
+			s.conn.Close()
+		}()
+	}
 }
 
 func (s *Session) Cleanup() {
-	log.Println("🧹 Cleaning up session resources")
+	logger.Log.Info("🧹 Cleaning up session resources")
 	if s.ClientSessionID != nil {
 		SessionManager.Remove(*s.ClientSessionID)
 	}

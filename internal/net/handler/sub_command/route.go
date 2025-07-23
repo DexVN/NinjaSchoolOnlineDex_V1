@@ -1,8 +1,8 @@
 package sub_command
 
 import (
-	"nso-server/internal/proto"
 	"nso-server/internal/net"
+	"nso-server/internal/proto"
 )
 
 func RouteSubCommand(subCmd int8, msg *proto.Message, s *net.Session) {

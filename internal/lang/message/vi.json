@@ -1,0 +1,15 @@
+{
+    "account": {
+        "logged_in_elsewhere": "Tài khoản của bạn đã được đăng nhập trên thiết bị khác. Nếu không phải bạn thực hiện, vui lòng đổi mật khẩu ngay!",
+        "logged_in_elsewhere_new": "Bạn đang đăng nhập ở máy khác. Vui lòng thử lại sau.",
+        "register_incomplete": "Vui lòng nhập đầy đủ thông tin đăng ký.",
+        "account_too_short": "Tên tài khoản quá ngắn, vui lòng nhập ít nhất 5 ký tự.",
+        "register_invalid_email": "Email không hợp lệ, vui lòng nhập đúng định dạng email.",
+        "register_username_exists": "Tên tài khoản đã tồn tại, vui lòng chọn tên khác.",
+        "register_email_exists": "Email đã được sử dụng, vui lòng nhập email khác.",
+        "register_success": "Đăng ký thành công! Vui lòng đăng nhập để tiếp tục."
+    },
+    "common": {
+        "error_occurred": "Đã có lỗi xảy ra. Vui lòng liên hệ với quản trị viên để được hỗ trợ."
+    }
+}

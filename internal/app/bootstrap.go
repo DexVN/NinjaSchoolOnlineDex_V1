@@ -2,42 +2,56 @@ package app
 
 import (
 	"fmt"
-	"log"
 
 	_ "github.com/lib/pq"
 	"nso-server/internal/config"
 	"nso-server/internal/infra"
+	"nso-server/internal/lang"
 	"nso-server/internal/model"
 	netio "nso-server/internal/net"
 	"nso-server/internal/net/handler"
-	
 )
 
 func Bootstrap() error {
+	// ✅ Load config
 	config.LoadEnv()
 	config.LoadConfig()
 
-	log.Println("🌐 Env:", config.Config.AppEnv)
-	log.Println("🔗 DB:", config.Config.DBUrl)
+	infra.Log.Infof("🌐 Loaded config: Env=%s, LogLevel=%s", config.Config.AppEnv, config.Config.LogLevel)
 
+	// ✅ Init language
+	defaultLang := config.Config.DefaultLanguage
+	if err := lang.Init(defaultLang); err != nil {
+		infra.Log.WithError(err).Error("❌ Failed to load language")
+		return fmt.Errorf("load language failed: %w", err)
+	}
+	infra.Log.Infof("🌍 Language loaded: %s", lang.GetLangDisplayName(defaultLang))
+
+	// ✅ Init database
 	infra.InitDatabase()
+	infra.Log.Info("🔗 Database initialized")
 
-	// Chạy AutoMigrate
+	// ✅ Auto migrate
 	if err := autoMigrateModels(); err != nil {
+		infra.Log.WithError(err).Error("❌ Auto migration failed")
 		return fmt.Errorf("auto-migrate failed: %w", err)
 	}
+	infra.Log.Info("📦 Models auto-migrated")
 
-	// Chạy Seed
+	// ✅ Seed data in development
 	if config.Config.AppEnv == "development" {
+		infra.Log.Warn("🌱 Development mode: running seed")
 		Seed()
 	}
 
-	// Start server
+	// ✅ Start game server
 	srv, err := netio.NewServer(":14444", handler.RouteMessage)
 	if err != nil {
+		infra.Log.WithError(err).Error("❌ Server startup failed")
 		return fmt.Errorf("server error: %w", err)
 	}
-	log.Println("🚀 NSO Server up")
+
+	infra.Log.Info("🚀 NSO Server started on :14444")
 	srv.Start()
 
 	return nil
@@ -45,8 +59,7 @@ func Bootstrap() error {
 
 func autoMigrateModels() error {
 	db := infra.DB
-
-	log.Println("📦 Auto migrating models...")
+	infra.Log.Info("📦 Starting auto-migration...")
 
 	return db.AutoMigrate(
 		&model.Account{},

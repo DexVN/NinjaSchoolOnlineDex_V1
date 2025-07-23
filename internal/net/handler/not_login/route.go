@@ -1,7 +1,7 @@
 package not_login
 
 import (
-	"log"
+	logger "nso-server/internal/infra"
 	"nso-server/internal/net"
 	"nso-server/internal/proto"
 )
@@ -15,6 +15,6 @@ func RouteNotLogin(subCmd int8, msg *proto.Message, s *net.Session) {
 	case proto.CmdComfirmAccount:
 		HandleRegister(msg, s)
 	default:
-		log.Printf("⚠️ Unknown NotLogin SubCmd: %d", subCmd)
+		logger.Log.Warnf("⚠️ Unknown NotLogin SubCmd: %d", subCmd)
 	}
 }

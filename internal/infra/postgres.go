@@ -1,7 +1,7 @@
 package infra
 
 import (
-	"log"
+	"fmt"
 	"os"
 	"time"
 
@@ -12,14 +12,23 @@ import (
 var DB *gorm.DB
 
 func InitDatabase() {
-	dsn := os.Getenv("DB_URL")
-	if dsn == "" {
-		dsn = "postgres://postgres:123456@localhost:5432/nso_db?sslmode=disable"
+	host := os.Getenv("DB_HOST")
+	port := os.Getenv("DB_PORT")
+	name := os.Getenv("DB_NAME")
+	user := os.Getenv("DB_USER")
+	pass := os.Getenv("DB_PASS")
+	ssl := os.Getenv("DB_SSL")
+	if ssl == "" {
+		ssl = "disable"
 	}
+
+	// Tạo DSN từ từng biến
+	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s",
+		user, pass, host, port, name, ssl)
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
-		log.Fatalf("❌ Cannot connect to database: %v", err)
+		Log.Fatalf("❌ Cannot connect to database: %v", err)
 	}
 
 	sqlDB, _ := db.DB()
@@ -28,5 +37,5 @@ func InitDatabase() {
 	sqlDB.SetConnMaxLifetime(time.Hour)
 
 	DB = db
-	log.Println("✅ Connected to PostgreSQL")
+	Log.Info("✅ Connected to PostgreSQL")
 }

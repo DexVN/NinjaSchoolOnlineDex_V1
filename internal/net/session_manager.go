@@ -1,49 +1,69 @@
 package net
 
 import (
-	"log"
 	"sync"
 	"time"
+
+	logger "nso-server/internal/infra"
+	"nso-server/internal/lang"
+	"nso-server/internal/proto"
 )
 
 type SessionManagerStruct struct {
-	sessions map[int]*Session
-	mu       sync.RWMutex
+	sessions      map[int]*Session
+	pendingByUser map[string][]*Session
+	mu            sync.RWMutex
 }
 
 var SessionManager = &SessionManagerStruct{
-	sessions: make(map[int]*Session),
+	sessions:      make(map[int]*Session),
+	pendingByUser: make(map[string][]*Session),
 }
 
 func (m *SessionManagerStruct) Add(userID int, session *Session) {
-	log.Printf("🔗 Adding session for user %d", userID)
+	logger.Log.Infof("🔗 Adding session for user %d", userID)
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
 	if old, ok := m.sessions[userID]; ok && old != session {
-		go func() {
-			old.Kick("Tài khoản đã đăng nhập ở nơi khác")
-			time.Sleep(2 * time.Second) // Đợi 1 giây để đảm bảo gói tin được gửi
-			old.conn.Close()
-		}()
+		// 🔴 Gửi thông báo tới session cũ
+		go func(s *Session) {
+			s.SendMessageWithCommand(proto.CmdServerDialog, dialogWriter(lang.Get("account.logged_in_elsewhere")))
+			time.Sleep(3000 * time.Millisecond)
+			s.Kick(true)
+			s.Cleanup()
+		}(old)
+
+		// 🟢 Gửi thông báo tới session mới (đang login)
+		go func(s *Session) {
+			s.SendMessageWithCommand(proto.CmdServerDialog, dialogWriter(lang.Get("account.logged_in_elsewhere_new")))
+			time.Sleep(3000 * time.Millisecond)
+			s.Kick(true)
+			s.Cleanup()
+		}(session)
+		return // Không ghi đè session
 	}
+
+	// ✅ Nếu không có session cũ thì gán session mới
 	m.sessions[userID] = session
 }
 
 func (s *Session) OnLoginSuccess(userID int) {
-	log.Printf("✅ User %d logged in successfully", userID)
+	logger.Log.Infof("✅ User %d logged in successfully", userID)
 	s.ClientSessionID = &userID
 	SessionManager.Add(userID, s)
 }
 
 func (m *SessionManagerStruct) Remove(userID int) {
-	log.Printf("🔌 Removing session for user %d", userID)
+	logger.Log.Infof("🔌 Removing session for user %d", userID)
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	delete(m.sessions, userID)
 }
 
 func (m *SessionManagerStruct) IsOnline(userID int) bool {
-	log.Printf("🔍 Checking if user %d is online", userID)
+	logger.Log.Infof("🔍 Checking if user %d is online", userID)
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	_, ok := m.sessions[userID]
@@ -51,9 +71,15 @@ func (m *SessionManagerStruct) IsOnline(userID int) bool {
 }
 
 func (m *SessionManagerStruct) GetSession(userID int) (*Session, bool) {
-	log.Printf("🔎 Getting session for user %d", userID)
+	logger.Log.Infof("🔎 Getting session for user %d", userID)
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	s, ok := m.sessions[userID]
 	return s, ok
+}
+
+func dialogWriter(text string) *proto.Writer {
+	w := proto.NewWriter()
+	w.WriteUTF(text)
+	return w
 }
