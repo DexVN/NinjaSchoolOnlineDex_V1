@@ -1,15 +1,29 @@
 # 🥷 Ninja School Online (NSO) Server - Go Implementation
 
 > **Một backend server dành cho game NSO được viết lại bằng Golang.**  
+> 📚 *Tài liệu và mã nguồn này chỉ mang tính chất học tập và nghiên cứu.*
+
 ---
 
-## 🚀 Tính năng chính
+## 📌 Giới thiệu
 
-- ✅ Server socket dạng `TCP`
-- ✅ Gửi và nhận `Message XOR`
-- ✅ Quản lý session người chơi
-- ✅ Hỗ trợ đa server
-- ✅ Auto migrate và seed database
+Đây là một dự án mô phỏng lại server của **Ninja School Online**, một trò chơi nhập vai nổi tiếng tại Việt Nam, được viết lại bằng ngôn ngữ **Go (Golang)** nhằm phục vụ mục đích:
+
+- Học tập kiến trúc server game multiplayer
+- Hiểu rõ về hệ thống message/tcp protocol trong client NSO
+- Thực hành kỹ năng lập trình backend chịu tải cao
+
+> ⚠️ **Lưu ý**: Đây **không phải** là server chính thức hoặc được phát hành bởi nhà phát hành game gốc. Dự án không khuyến khích sử dụng cho mục đích thương mại.
+
+---
+
+## 🏗 Kiến trúc chính
+
+- TCP server theo kiểu custom protocol (bắt chước server NSO thật)
+- Hệ thống phân tích và định tuyến lệnh (Command-based handler)
+- Xử lý đăng nhập, đăng ký, session, handshake, mã hóa XOR key
+- Tích hợp với PostgreSQL để lưu trữ dữ liệu
+- Giao tiếp Binary-based message (tự viết encoder/decoder)
 
 ---
 
