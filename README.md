@@ -117,6 +117,8 @@ AppEnv = development
 
 ## 📜 License
 
-```
-MIT License – for educational use only.
-```
+This project is licensed under the [Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)](https://creativecommons.org/licenses/by-nc/4.0/) license.
+
+> This means you're free to use, share, and modify the code for **non-commercial purposes**, as long as you give appropriate credit.
+
+[![License: CC BY-NC 4.0](https://img.shields.io/badge/License-BY--NC%204.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
