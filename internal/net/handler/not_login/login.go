@@ -1,7 +1,10 @@
-package handler
+package not_login
 
 import (
 	"log"
+	"strings"
+
+	"golang.org/x/crypto/bcrypt"
 
 	"nso-server/internal/infra"
 	"nso-server/internal/model"
@@ -29,29 +32,34 @@ func HandleLogin(msg *proto.Message, s *net.Session) {
 	log.Printf("- RandomToken: %s", randomToken)
 	log.Printf("- ServerLogin: %d", serverLogin)
 
+	username = strings.TrimSpace(username)
+	password = strings.TrimSpace(password)
+
+	if username == "" || password == "" {
+		log.Println("❌ Login: missing username or password")
+		return
+	}
+
 	// Tìm account
 	var acc model.Account
 	err := infra.DB.Where("username = ?", username).First(&acc).Error
 	if err != nil {
-		// ❗ Tài khoản chưa tồn tại → tạo mới
-		acc = model.Account{
-			Username:     username,
-			Password:     password,
-			RandomToken:  randomToken,
-		}
-		if err := infra.DB.Create(&acc).Error; err != nil {
-			log.Printf("❌ Cannot create account: %v", err)
-			return
-		}
-		log.Printf("✅ Created new account ID=%d", acc.ID)
-	} else {
-		log.Printf("✅ Found existing account ID=%d", acc.ID)
+		log.Printf("❌ Login failed: account '%s' not found", username)
+		return
+	}
 
-		// Cập nhật token nếu chưa có
-		if acc.RandomToken == "" && randomToken != "" {
-			acc.RandomToken = randomToken
-			infra.DB.Save(&acc)
-		}
+	// So sánh password đã mã hóa
+	if bcrypt.CompareHashAndPassword([]byte(acc.Password), []byte(password)) != nil {
+		log.Printf("❌ Login failed: wrong password for account '%s'", username)
+		return
+	}
+
+	log.Printf("✅ Login success: account ID=%d", acc.ID)
+
+	// Cập nhật token nếu chưa có
+	if acc.RandomToken == "" && randomToken != "" {
+		acc.RandomToken = randomToken
+		infra.DB.Save(&acc)
 	}
 
 	// Gắn AccountID vào session nếu có session record
@@ -61,5 +69,4 @@ func HandleLogin(msg *proto.Message, s *net.Session) {
 			Update("account_id", acc.ID)
 		log.Printf("🔗 Linked session %d → account %d", *s.ClientSessionID, acc.ID)
 	}
-
 }

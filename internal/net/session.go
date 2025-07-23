@@ -11,15 +11,15 @@ import (
 )
 
 const (
-	cmdKeyHandshake = byte(0xE5)
+	CmdKeyHandshake = byte(0xE5)
 )
 
 type Session struct {
-	conn       net.Conn
-	router     RouterFunc
-	key        []byte
-	readIndex  int
-	writeIndex int
+	conn            net.Conn
+	router          RouterFunc
+	key             []byte
+	readIndex       int
+	writeIndex      int
 	ClientSessionID *int
 }
 
@@ -59,7 +59,7 @@ func (s *Session) Start() {
 		}
 	}
 
-	if opcode == proto.CmdGetSessionID {
+	if opcode == proto.CmdGetSessionId {
 		if err := s.sendHandshake(); err != nil {
 			log.Println("❌ Send handshake failed:", err)
 			return
@@ -86,7 +86,7 @@ func (s *Session) sendHandshake() error {
 	payload := append([]byte{byte(len(key))}, key...)
 
 	buf := make([]byte, 1+2+len(payload))
-	buf[0] = cmdKeyHandshake
+	buf[0] = CmdKeyHandshake
 	binary.BigEndian.PutUint16(buf[1:3], uint16(len(payload)))
 	copy(buf[3:], payload)
 
@@ -106,7 +106,13 @@ func (s *Session) sendHandshake() error {
 }
 
 func (s *Session) SendMessage(msg *proto.Message) error {
-	return proto.WriteMessage(s.conn, *msg, s.key, &s.writeIndex)
+	return proto.WriteMessage(s.conn, msg, s.key, &s.writeIndex)
+}
+
+func (s *Session) SendMessageWithCommand(cmd int8, w *proto.Writer) error {
+	msg := proto.NewMessage(cmd)
+	msg.Writer().WriteBytes(w.GetData())
+	return s.SendMessage(msg)
 }
 
 func (s *Session) Conn() net.Conn {
