@@ -1,5 +1,4 @@
-# Force Go files to use LF line endings
 *.go text eol=lf
-
-# Force env file to use LF
 .env.example text eol=lf
+.README.md text eol=lf
+

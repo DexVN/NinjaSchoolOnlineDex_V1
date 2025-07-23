@@ -21,6 +21,7 @@ type Session struct {
 	readIndex       int
 	writeIndex      int
 	ClientSessionID *int
+	CharacterID     *int
 }
 
 type RouterFunc func(msg *proto.Message, s *Session)
@@ -113,6 +114,23 @@ func (s *Session) SendMessageWithCommand(cmd int8, w *proto.Writer) error {
 	msg := proto.NewMessage(cmd)
 	msg.Writer().WriteBytes(w.GetData())
 	return s.SendMessage(msg)
+}
+
+func (s *Session) Kick(reason string) {
+	log.Println("🔒 Kicking session:", reason)
+	w := proto.NewWriter()
+	w.WriteUTF(reason)
+	s.SendMessageWithCommand(proto.CmdServerDialog, w)
+}
+
+func (s *Session) Cleanup() {
+	log.Println("🧹 Cleaning up session resources")
+	if s.ClientSessionID != nil {
+		SessionManager.Remove(*s.ClientSessionID)
+	}
+	if s.CharacterID != nil {
+		CharacterOnlineManager.Remove(*s.CharacterID)
+	}
 }
 
 func (s *Session) Conn() net.Conn {

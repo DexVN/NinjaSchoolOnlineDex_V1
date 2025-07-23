@@ -23,7 +23,7 @@ func HandleLogin(msg *proto.Message, s *net.Session) {
 	randomToken, _ := r.ReadUTF()
 	serverLogin, _ := r.ReadByte()
 
-	log.Println("🔐 Login Request:")
+	log.Println("Login Request:")
 	log.Printf("- Username: %s", username)
 	log.Printf("- Password: %s", password)
 	log.Printf("- Version: %s", version)
@@ -36,7 +36,8 @@ func HandleLogin(msg *proto.Message, s *net.Session) {
 	password = strings.TrimSpace(password)
 
 	if username == "" || password == "" {
-		log.Println("❌ Login: missing username or password")
+		log.Println("\u274C Login: missing username or password")
+		sendLoginFail(s, "Tên đăng nhập hoặc mật khẩu không được để trống")
 		return
 	}
 
@@ -44,17 +45,19 @@ func HandleLogin(msg *proto.Message, s *net.Session) {
 	var acc model.Account
 	err := infra.DB.Where("username = ?", username).First(&acc).Error
 	if err != nil {
-		log.Printf("❌ Login failed: account '%s' not found", username)
+		log.Printf("\u274C Login failed: account '%s' not found", username)
+		sendLoginFail(s, "Tài khoản không tồn tại")
 		return
 	}
 
 	// So sánh password đã mã hóa
 	if bcrypt.CompareHashAndPassword([]byte(acc.Password), []byte(password)) != nil {
-		log.Printf("❌ Login failed: wrong password for account '%s'", username)
+		log.Printf("\u274C Login failed: wrong password for account '%s'", username)
+		sendLoginFail(s, "Mật khẩu không đúng")
 		return
 	}
 
-	log.Printf("✅ Login success: account ID=%d", acc.ID)
+	log.Printf("\u2705 Login success: account ID=%d", acc.ID)
 
 	// Cập nhật token nếu chưa có
 	if acc.RandomToken == "" && randomToken != "" {
@@ -67,6 +70,19 @@ func HandleLogin(msg *proto.Message, s *net.Session) {
 		infra.DB.Model(&model.ClientSession{}).
 			Where("id = ?", *s.ClientSessionID).
 			Update("account_id", acc.ID)
-		log.Printf("🔗 Linked session %d → account %d", *s.ClientSessionID, acc.ID)
+		log.Printf(" Linked session %d → account %d", *s.ClientSessionID, acc.ID)
 	}
+
+	// 🔒 Kick session cũ nếu có và gán session mới
+	s.OnLoginSuccess(int(acc.ID))
+
+	// ✅ TODO: Gửi danh sách nhân vật nếu muốn
+	// sendCharacterList(s, acc.ID)
+}
+
+func sendLoginFail(s *net.Session, reason string) {
+	log.Println("❌ Login failed:", reason)
+	w := proto.NewWriter()
+	w.WriteUTF(reason)
+	s.SendMessageWithCommand(proto.CmdServerDialog, w)
 }
