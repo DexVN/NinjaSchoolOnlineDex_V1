@@ -18,4 +18,4 @@ Thumbs.db
 
 # Env config
 .env
-*.log
+logs/
