@@ -6,7 +6,7 @@ import (
 	"net"
 	"time"
 
-	logger "nso-server/internal/infra"
+	"nso-server/internal/pkg/logger"
 	"nso-server/internal/proto"
 )
 
@@ -22,6 +22,8 @@ type Session struct {
 	writeIndex      int
 	ClientSessionID *int
 	CharacterID     *int
+	ServerID        *int
+	ServerCode      string
 }
 
 type RouterFunc func(msg *proto.Message, s *Session)
@@ -38,19 +40,19 @@ func (s *Session) Start() {
 		s.Cleanup()    // 🧹 cleanup khỏi SessionManager, CharacterManager,...
 		s.conn.Close() // đóng kết nối sau cleanup
 	}()
-	logger.Log.Infof("🔄 New connection from %s", s.conn.RemoteAddr())
+	logger.Infof("🔄 New connection from %s", s.conn.RemoteAddr())
 
 	// Đọc gói đầu tiên (thường là handshake)
 	opcodeBuf := make([]byte, 1)
 	if _, err := io.ReadFull(s.conn, opcodeBuf); err != nil {
-		logger.Log.WithError(err).Error("❌ Failed to read opcode")
+		logger.WithError(err).Error("❌ Failed to read opcode")
 		return
 	}
 	opcode := int8(opcodeBuf[0])
 
 	lenBuf := make([]byte, 2)
 	if _, err := io.ReadFull(s.conn, lenBuf); err != nil {
-		logger.Log.WithError(err).Error("❌ Failed to read length")
+		logger.WithError(err).Error("❌ Failed to read length")
 		return
 	}
 	length := binary.BigEndian.Uint16(lenBuf)
@@ -58,25 +60,25 @@ func (s *Session) Start() {
 	if length > 0 {
 		drop := make([]byte, length)
 		if _, err := io.ReadFull(s.conn, drop); err != nil {
-			logger.Log.WithError(err).Error("❌ Failed to read payload")
+			logger.WithError(err).Error("❌ Failed to read payload")
 			return
 		}
 	}
 
 	if opcode == proto.CmdGetSessionId {
 		if err := s.sendHandshake(); err != nil {
-			logger.Log.WithError(err).Error("❌ Send handshake failed")
+			logger.WithError(err).Error("❌ Send handshake failed")
 			return
 		}
 	}
 
-	logger.Log.Info("✅ Handshake complete, start encrypted message loop")
+	logger.Info("✅ Handshake complete, start encrypted message loop")
 
 	for {
 		msg, err := proto.ReadMessage(s.conn, s.key, &s.readIndex)
 		if err != nil {
 			if err != io.EOF {
-				logger.Log.WithError(err).Warn("⚠️ ReadMessage error")
+				logger.WithError(err).Warn("⚠️ ReadMessage error")
 			}
 			break
 		}
@@ -104,7 +106,7 @@ func (s *Session) sendHandshake() error {
 		s.key[i] ^= s.key[i-1] // giống client Unity
 	}
 
-	logger.Log.Infof("🔐 XOR key activated: % X", s.key)
+	logger.Infof("🔐 XOR key activated: % X", s.key)
 	return nil
 }
 
@@ -128,7 +130,7 @@ func (s *Session) Kick(forceClose bool) {
 }
 
 func (s *Session) Cleanup() {
-	logger.Log.Info("🧹 Cleaning up session resources")
+	logger.Info("🧹 Cleaning up session resources")
 	if s.ClientSessionID != nil {
 		SessionManager.Remove(*s.ClientSessionID)
 	}

@@ -3,13 +3,22 @@ package not_login
 import (
 	"strings"
 
-	logger "nso-server/internal/infra"
 	"nso-server/internal/model"
 	"nso-server/internal/net"
 	"nso-server/internal/proto"
+	"nso-server/internal/pkg/logger"
+	"nso-server/internal/pkg/di"
 )
 
-func HandleClientInfo(msg *proto.Message, s *net.Session) {
+type ClientInfoHandler struct {
+	Deps *di.Dependencies
+}
+
+func NewClientInfoHandler(deps *di.Dependencies) *ClientInfoHandler {
+	return &ClientInfoHandler{Deps: deps}
+}
+
+func (h *ClientInfoHandler) Handle(msg *proto.Message, s *net.Session) {
 	r := msg.Reader()
 
 	clientType, _ := r.ReadByte()
@@ -26,12 +35,12 @@ func HandleClientInfo(msg *proto.Message, s *net.Session) {
 	userProvider, _ := r.ReadInt32()
 	clientAgent, _ := r.ReadUTF()
 
-	logger.Log.Info("📱 Client info:")
-	logger.Log.Infof("- Type: %d, Zoom: %d, GPRS: %v", clientType, zoomLevel, isGprs)
-	logger.Log.Infof("- Screen: %dx%d, QWERTY: %v, Touch: %v", width, height, isQwerty, isTouch)
-	logger.Log.Infof("- Platform: %s", platform)
-	logger.Log.Infof("- VersionIP: %d, Lang: %d, Provider: %d", versionIP, lang, userProvider)
-	logger.Log.Infof("- Agent: %s", clientAgent)
+	logger.Info("📱 Client info:")
+	logger.Infof("- Type: %d, Zoom: %d, GPRS: %v", clientType, zoomLevel, isGprs)
+	logger.Infof("- Screen: %dx%d, QWERTY: %v, Touch: %v", width, height, isQwerty, isTouch)
+	logger.Infof("- Platform: %s", platform)
+	logger.Infof("- VersionIP: %d, Lang: %d, Provider: %d", versionIP, lang, userProvider)
+	logger.Infof("- Agent: %s", clientAgent)
 
 	remoteIP := strings.Split(s.Conn().RemoteAddr().String(), ":")[0]
 
@@ -51,10 +60,10 @@ func HandleClientInfo(msg *proto.Message, s *net.Session) {
 		RemoteAddr:   remoteIP,
 	}
 
-	if err := logger.DB.Create(&session).Error; err != nil {
-		logger.Log.WithError(err).Error("❌ Failed to insert client session")
+	if err := h.Deps.DB.Create(&session).Error; err != nil {
+		logger.WithError(err).Error("❌ Failed to insert client session")
 	} else {
 		s.ClientSessionID = &session.ID
-		logger.Log.Infof("✅ Client session saved (ID: %d, IP: %s)", session.ID, session.RemoteAddr)
+		logger.Infof("✅ Client session saved (ID: %d, IP: %s)", session.ID, session.RemoteAddr)
 	}
 }

@@ -1,24 +1,41 @@
 package handler
 
 import (
-	"log"
-
 	"nso-server/internal/net"
+	"nso-server/internal/net/handler/not_login"
+	"nso-server/internal/net/handler/not_map"
+	"nso-server/internal/net/handler/sub_command"
 	"nso-server/internal/proto"
-
-	notlogin "nso-server/internal/net/handler/not_login"
-	subcmd "nso-server/internal/net/handler/sub_command"
+	"nso-server/internal/pkg/logger"
 )
 
-func RouteMessage(msg *proto.Message, session *net.Session) {
-	switch msg.Command {
-	case proto.CmdNotLogin:
-		subCmd, _ := msg.Reader().ReadInt8()
-		notlogin.RouteNotLogin(subCmd, msg, session)
-	case proto.CmdSubCommand:
-		subCmd, _ := msg.Reader().ReadInt8()
-		subcmd.RouteSubCommand(subCmd, msg, session)
-	default:
-		log.Printf("⚠️ Unknown command: %d", msg.Command)
+type SubRouter interface {
+	Route(subCmd int8, msg *proto.Message, s *net.Session)
+}
+
+type Router struct {
+	commandRouters map[int8]SubRouter
+}
+
+func NewRouter(
+	notLogin *not_login.NotLoginRouter,
+	notMap *not_map.NotMapRouter,
+	subCommand *sub_command.SubCommandRouter,
+) *Router {
+	return &Router{
+		commandRouters: map[int8]SubRouter{
+			proto.CmdNotLogin:   notLogin,
+			proto.CmdNotMap:     notMap,
+			proto.CmdSubCommand: subCommand,
+		},
+	}
+}
+
+func (r *Router) Handle(msg *proto.Message, s *net.Session) {
+	subCmd, _ := msg.Reader().ReadInt8()
+	if router, ok := r.commandRouters[msg.Command]; ok {
+		router.Route(subCmd, msg, s)
+	} else {
+		logger.Warnf("⚠️ Unknown command: %d", msg.Command)
 	}
 }

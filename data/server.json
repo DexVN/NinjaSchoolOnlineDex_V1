@@ -1,0 +1,13 @@
+{
+	"server": [
+		{
+			"name": "Iron",
+			"code": "0",
+			"ip": "127.0.0.1",
+			"port": 14444,
+			"language": 0,
+			"max_players": 1000,
+			"maintenance": false
+		}
+	]
+}

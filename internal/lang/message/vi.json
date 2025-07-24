@@ -9,6 +9,9 @@
         "register_email_exists": "Email đã được sử dụng, vui lòng nhập email khác.",
         "register_success": "Đăng ký thành công! Vui lòng đăng nhập để tiếp tục."
     },
+	"server": {
+		"reach_max_players": "Đã đạt giới hạn người chơi tối đa. Vui lòng thử lại sau."
+	},
     "common": {
         "error_occurred": "Đã có lỗi xảy ra. Vui lòng liên hệ với quản trị viên để được hỗ trợ."
     }

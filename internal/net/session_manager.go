@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	logger "nso-server/internal/infra"
+	"nso-server/internal/pkg/logger"
 	"nso-server/internal/lang"
 	"nso-server/internal/proto"
 )
@@ -21,7 +21,7 @@ var SessionManager = &SessionManagerStruct{
 }
 
 func (m *SessionManagerStruct) Add(userID int, session *Session) {
-	logger.Log.Infof("🔗 Adding session for user %d", userID)
+	logger.Infof("🔗 Adding session for user %d", userID)
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -50,20 +50,20 @@ func (m *SessionManagerStruct) Add(userID int, session *Session) {
 }
 
 func (s *Session) OnLoginSuccess(userID int) {
-	logger.Log.Infof("✅ User %d logged in successfully", userID)
+	logger.Infof("✅ User %d logged in successfully", userID)
 	s.ClientSessionID = &userID
 	SessionManager.Add(userID, s)
 }
 
 func (m *SessionManagerStruct) Remove(userID int) {
-	logger.Log.Infof("🔌 Removing session for user %d", userID)
+	logger.Infof("🔌 Removing session for user %d", userID)
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	delete(m.sessions, userID)
 }
 
 func (m *SessionManagerStruct) IsOnline(userID int) bool {
-	logger.Log.Infof("🔍 Checking if user %d is online", userID)
+	logger.Infof("🔍 Checking if user %d is online", userID)
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	_, ok := m.sessions[userID]
@@ -71,7 +71,7 @@ func (m *SessionManagerStruct) IsOnline(userID int) bool {
 }
 
 func (m *SessionManagerStruct) GetSession(userID int) (*Session, bool) {
-	logger.Log.Infof("🔎 Getting session for user %d", userID)
+	logger.Infof("🔎 Getting session for user %d", userID)
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	s, ok := m.sessions[userID]

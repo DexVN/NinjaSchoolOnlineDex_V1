@@ -303,7 +303,7 @@ const (
 	CmdUpdateInfoMe       int8 = 115
 	CmdUpdateInfoChar     int8 = 116
 	CmdMapItem            int8 = 117
-	CmdComfirmAccount     int8 = 118
+	CmdConfirmAccount     int8 = 118
 	CmdAutoAttackMove     int8 = 119
 	CmdDoiMatKhau         int8 = 120
 	CmdRankedMatch        int8 = 121

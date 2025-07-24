@@ -1,13 +1,27 @@
-package sub_command
+package not_map
 
 import (
 	"nso-server/internal/net"
 	"nso-server/internal/proto"
+	"nso-server/internal/pkg/di"
+	"nso-server/internal/pkg/logger"
 )
 
-func RouteNotMap(subCmd int8, msg *proto.Message, s *net.Session) {
+type NotMapRouter struct {
+	deps *di.Dependencies
+}
+
+func NewRouter(deps *di.Dependencies) *NotMapRouter {
+	return &NotMapRouter{deps: deps}
+}
+
+func (r *NotMapRouter) Route(subCmd int8, msg *proto.Message, s *net.Session) {
 	switch subCmd {
+
+	// case proto.SubCmdExample:
+	// 	   r.handleSomething(msg, s)
+
 	default:
-		// log subCmd chưa được xử lý
+		logger.Warnf("⚠️ Unknown NotMap SubCmd: %d", subCmd)
 	}
 }
