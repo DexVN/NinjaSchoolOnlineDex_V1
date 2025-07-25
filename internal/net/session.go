@@ -123,8 +123,7 @@ func (s *Session) SendMessageWithCommand(cmd int8, w *proto.Writer) error {
 func (s *Session) Kick(forceClose bool) {
 	if forceClose {
 		go func() {
-			time.Sleep(500 * time.Millisecond)
-			s.conn.Close()
+			_ = s.conn.SetDeadline(time.Now())
 		}()
 	}
 }

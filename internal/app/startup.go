@@ -14,7 +14,18 @@ func StartServer(lc fx.Lifecycle, srv *net.Server) {
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {
-			return srv.Stop()
+			done := make(chan struct{})
+			go func() {
+				srv.Stop()
+				close(done)
+			}()
+
+			select {
+			case <-done:
+				return nil
+			case <-ctx.Done():
+				return ctx.Err()
+			}
 		},
 	})
 }

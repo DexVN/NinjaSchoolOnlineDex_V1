@@ -6,10 +6,12 @@ import (
 	"net"
 	"strings"
 	"sync"
+	"time"
 
-	"go.uber.org/fx"
 	"nso-server/internal/pkg/config"
 	"nso-server/internal/pkg/logger"
+
+	"go.uber.org/fx"
 )
 
 type Server struct {
@@ -17,6 +19,7 @@ type Server struct {
 	listener net.Listener
 	router   RouterFunc
 	wg       sync.WaitGroup
+	sessions sync.Map
 }
 
 func NewServer(cfg *config.Config, router RouterFunc) (*Server, error) {
@@ -48,27 +51,42 @@ func (s *Server) Start() {
 		}
 
 		s.wg.Add(1)
+
 		go func() {
 			defer s.wg.Done()
-			s.handleConn(conn)
+			session := NewSession(conn, s.router)
+			s.sessions.Store(session, struct{}{})
+			defer s.sessions.Delete(session)
+			session.Start()
 		}()
 	}
 }
 
-func (s *Server) Stop() error {
-	if s.listener == nil {
-		logger.Warn("🛑 Server was never started or already stopped.")
-		return nil
-	}
-
+func (s *Server) Stop() {
 	logger.Info("🛑 Stopping server...")
-	if err := s.listener.Close(); err != nil {
-		logger.WithError(err).Error("❌ Error closing listener")
-		return err
+	_ = s.listener.Close()
+
+	// Kick tất cả session
+	s.sessions.Range(func(k, _ any) bool {
+		if sess, ok := k.(*Session); ok {
+			sess.Kick(true) // Đóng kết nối nhẹ nhàng
+		}
+		return true
+	})
+
+	// Chờ tất cả session đóng
+	done := make(chan struct{})
+	go func() {
+		s.wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		logger.Info("✅ All sessions closed")
+	case <-time.After(5 * time.Second):
+		logger.Warn("⚠️ Timeout: Some sessions may still be hanging")
 	}
-	s.wg.Wait()
-	logger.Info("✅ Server shutdown complete")
-	return nil
 }
 
 func (s *Server) handleConn(conn net.Conn) {
@@ -83,7 +101,8 @@ func Serve(lc fx.Lifecycle, server *Server) {
 			return nil
 		},
 		OnStop: func(ctx context.Context) error {
-			return server.Stop()
+			go server.Stop()
+			return nil
 		},
 	})
 }
